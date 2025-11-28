@@ -46,7 +46,7 @@
   </main>
 
   <script>
-    // Wrap everything to run when DOM is ready
+  
     document.addEventListener('DOMContentLoaded', () => {
       try {
         const defaultCourses = [
@@ -57,15 +57,14 @@
           "Web Development (HTML/CSS/JS)"
         ];
 
-        // Use existing array if you want persistence later
+        
         let courses = Array.from(defaultCourses);
 
         const listEl = document.getElementById('courseList');
         const orderEl = document.getElementById('currentOrder');
 
-        // Render the list items from `courses`
         function renderList(){
-          listEl.innerHTML = ''; // clear
+          listEl.innerHTML = ''; 
           courses.forEach((c, i) => {
             const li = document.createElement('li');
             li.className = 'course';
@@ -91,7 +90,7 @@
           item.addEventListener('dragstart', (e) => {
             dragSrcIndex = Number(item.dataset.index);
             e.dataTransfer.effectAllowed = 'move';
-            try { e.dataTransfer.setData('text/plain', String(dragSrcIndex)); } catch (err) { /* some browsers */ }
+            try { e.dataTransfer.setData('text/plain', String(dragSrcIndex)); } catch (err) { }
             item.style.opacity = '0.6';
           });
 
@@ -103,7 +102,7 @@
           item.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-            if(item !== e.target) { /* noop */ }
+            if(item !== e.target) { }
             item.classList.add('drag-over');
           });
 
@@ -114,16 +113,15 @@
             item.classList.remove('drag-over');
             const targetIndex = Number(item.dataset.index);
             if(dragSrcIndex === null || isNaN(targetIndex)) return;
-            // If dropped on same position, do nothing:
+           
             if(dragSrcIndex === targetIndex) return;
 
-            // Move from dragSrcIndex to targetIndex
+           
             moveArrayElement(courses, dragSrcIndex, targetIndex);
-            // Re-render
+          
             renderList();
           });
 
-          // Keyboard reordering support
           item.addEventListener('keydown', (e) => {
             const idx = Number(item.dataset.index);
             if(e.key === 'ArrowUp' && idx > 0){
@@ -139,12 +137,10 @@
             }
           });
         }
-
-        // move element at fromIndex -> toIndex (insert at toIndex position)
         function moveArrayElement(arr, fromIndex, toIndex){
           if(fromIndex === toIndex) return;
           const item = arr.splice(fromIndex, 1)[0];
-          // When removing element earlier in array and inserting after, destination index decreases by 1;
+
           const insertIndex = (toIndex > fromIndex) ? toIndex : toIndex;
           arr.splice(insertIndex, 0, item);
         }
@@ -162,19 +158,18 @@
           if(el) el.focus();
         }
 
-        // initial render
+       
         renderList();
 
-        // Expose for debugging (optional)
         window._coursesApp = { get courses(){ return courses }, renderList };
 
       } catch (err) {
         console.error('Error initializing course list app:', err);
-        // show an error inside the order box for user
+      
         const orderEl = document.getElementById('currentOrder');
         if(orderEl) orderEl.textContent = 'Failed to initialize app — see console for details.';
       }
-    }); // DOMContentLoaded
+    }); 
   </script>
 </body>
 </html>
