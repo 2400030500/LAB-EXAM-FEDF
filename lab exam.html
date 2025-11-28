@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Course List — Drag & Drop (Fixed)</title>
+  <style>
+    :root{ --bg:#f7f8fb; --card:#fff; --muted:#6b7280; --accent:#4f46e5; }
+    body{ margin:0; font-family:Inter,system-ui,Arial; background:linear-gradient(#f8f9ff,#eef2ff); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:32px; }
+    .card{ width:100%; max-width:720px; background:var(--card); border-radius:12px; padding:20px; box-shadow:0 8px 24px rgba(12,13,20,0.06); }
+    h1{ margin:0 0 8px; font-size:20px; }
+    p.lead{ margin:0 0 16px; color:var(--muted); }
+    ul.course-list{ list-style:none; margin:0 0 16px; padding:0; border-radius:8px; overflow:hidden; border:1px solid #eef1ff; background:linear-gradient(#fff,#fbfdff); }
+    li.course{ display:flex; align-items:center; gap:12px; padding:12px 14px; border-bottom:1px solid rgba(15,23,42,0.03); cursor:grab; user-select:none; }
+    li.course:last-child{ border-bottom:0; }
+    .handle{ width:36px;height:36px;border-radius:8px; display:inline-grid; place-items:center; background:#f1f5ff; color:var(--accent); font-weight:700; flex:0 0 36px; }
+    .title{ font-weight:600; }
+    .meta{ margin-left:auto; color:var(--muted); font-size:13px; }
+    .drag-over{ outline:2px dashed rgba(79,70,229,0.22); transform:scale(1.01); background:rgba(79,70,229,0.02); }
+    .order-box{ padding:12px; border-radius:8px; background:#fafbff; border:1px dashed #e6e9ff; color:#111827; font-size:14px; }
+    .note{ font-size:13px; color:var(--muted); margin-top:10px; }
+    @media(max-width:520px){ .handle{ display:none; } }
+  </style>
+</head>
+<body>
+  <main class="card" aria-label="Course reorder application">
+    <h1>Course List — Drag & Drop to Reorder (Fixed)</h1>
+    <p class="lead">Drag a course to rearrange. The updated order will appear below automatically.</p>
+
+    <!-- If JS fails completely this static list will still show five items.
+         JS will replace these items on load so this is safe to keep here. -->
+    <ul id="courseList" class="course-list" aria-live="polite">
+      <li class="course"><div class="handle">1</div><div class="title">Data Structures &amp; Algorithms</div><div class="meta">#1</div></li>
+      <li class="course"><div class="handle">2</div><div class="title">Database Management Systems</div><div class="meta">#2</div></li>
+      <li class="course"><div class="handle">3</div><div class="title">Computer Networks</div><div class="meta">#3</div></li>
+      <li class="course"><div class="handle">4</div><div class="title">Operating Systems</div><div class="meta">#4</div></li>
+      <li class="course"><div class="handle">5</div><div class="title">Web Development (HTML/CSS/JS)</div><div class="meta">#5</div></li>
+    </ul>
+
+    <div class="order-box" aria-label="current order">
+      <strong>Current order:</strong>
+      <div id="currentOrder" style="margin-top:8px; word-break:break-word;"></div>
+    </div>
+
+    <p class="note">Tip: On desktop use click & drag. If you still don't see items, open DevTools → Console and check for errors.</p>
+  </main>
+
+  <script>
+    // Wrap everything to run when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        const defaultCourses = [
+          "Data Structures & Algorithms",
+          "Database Management Systems",
+          "Computer Networks",
+          "Operating Systems",
+          "Web Development (HTML/CSS/JS)"
+        ];
+
+        // Use existing array if you want persistence later
+        let courses = Array.from(defaultCourses);
+
+        const listEl = document.getElementById('courseList');
+        const orderEl = document.getElementById('currentOrder');
+
+        // Render the list items from `courses`
+        function renderList(){
+          listEl.innerHTML = ''; // clear
+          courses.forEach((c, i) => {
+            const li = document.createElement('li');
+            li.className = 'course';
+            li.draggable = true;
+            li.tabIndex = 0;
+            li.dataset.index = i;
+            li.innerHTML = `<div class="handle" aria-hidden="true">${i+1}</div>
+                            <div class="title">${escapeHTML(c)}</div>
+                            <div class="meta">#${i+1}</div>`;
+            attachDragHandlers(li);
+            listEl.appendChild(li);
+          });
+          updateOrderDisplay();
+        }
+
+        function escapeHTML(s){
+          return s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+        }
+
+        let dragSrcIndex = null;
+
+        function attachDragHandlers(item){
+          item.addEventListener('dragstart', (e) => {
+            dragSrcIndex = Number(item.dataset.index);
+            e.dataTransfer.effectAllowed = 'move';
+            try { e.dataTransfer.setData('text/plain', String(dragSrcIndex)); } catch (err) { /* some browsers */ }
+            item.style.opacity = '0.6';
+          });
+
+          item.addEventListener('dragend', () => {
+            item.style.opacity = '';
+            clearDragOverStyles();
+          });
+
+          item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if(item !== e.target) { /* noop */ }
+            item.classList.add('drag-over');
+          });
+
+          item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+
+          item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            item.classList.remove('drag-over');
+            const targetIndex = Number(item.dataset.index);
+            if(dragSrcIndex === null || isNaN(targetIndex)) return;
+            // If dropped on same position, do nothing:
+            if(dragSrcIndex === targetIndex) return;
+
+            // Move from dragSrcIndex to targetIndex
+            moveArrayElement(courses, dragSrcIndex, targetIndex);
+            // Re-render
+            renderList();
+          });
+
+          // Keyboard reordering support
+          item.addEventListener('keydown', (e) => {
+            const idx = Number(item.dataset.index);
+            if(e.key === 'ArrowUp' && idx > 0){
+              moveArrayElement(courses, idx, idx-1);
+              renderList();
+              focusItemAt(idx-1);
+              e.preventDefault();
+            } else if(e.key === 'ArrowDown' && idx < courses.length - 1){
+              moveArrayElement(courses, idx, idx+1);
+              renderList();
+              focusItemAt(idx+1);
+              e.preventDefault();
+            }
+          });
+        }
+
+        // move element at fromIndex -> toIndex (insert at toIndex position)
+        function moveArrayElement(arr, fromIndex, toIndex){
+          if(fromIndex === toIndex) return;
+          const item = arr.splice(fromIndex, 1)[0];
+          // When removing element earlier in array and inserting after, destination index decreases by 1;
+          const insertIndex = (toIndex > fromIndex) ? toIndex : toIndex;
+          arr.splice(insertIndex, 0, item);
+        }
+
+        function clearDragOverStyles(){
+          document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        }
+
+        function updateOrderDisplay(){
+          orderEl.textContent = courses.map((c, i) => `${i+1}. ${c}`).join('  •  ');
+        }
+
+        function focusItemAt(index){
+          const el = listEl.querySelector(`li.course[data-index="${index}"]`);
+          if(el) el.focus();
+        }
+
+        // initial render
+        renderList();
+
+        // Expose for debugging (optional)
+        window._coursesApp = { get courses(){ return courses }, renderList };
+
+      } catch (err) {
+        console.error('Error initializing course list app:', err);
+        // show an error inside the order box for user
+        const orderEl = document.getElementById('currentOrder');
+        if(orderEl) orderEl.textContent = 'Failed to initialize app — see console for details.';
+      }
+    }); // DOMContentLoaded
+  </script>
+</body>
+</html>
